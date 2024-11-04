@@ -3,6 +3,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 
@@ -26,8 +27,22 @@ class LogoutRedirectView(View):
         logout(request)
         return redirect('conference_list')
 
+
 def conference_list(request):
-    conferences = Conference.objects.all().order_by('-created_at')
+    query = request.GET.get('q', '')
+
+    conferences = Conference.objects.all()
+    if query:
+        conferences = conferences.filter(
+            Q(title__icontains=query) |
+            Q(topics__icontains=query) |
+            Q(location__icontains=query) |
+            Q(description__icontains=query) |
+            Q(participation_conditions__icontains=query)
+        )
+
+    conferences = conferences.order_by('-created_at')
+
     paginator = Paginator(conferences, settings.ITEMS_PER_PAGE)
     page_number = request.GET.get('page', 1)
 
@@ -42,6 +57,7 @@ def conference_list(request):
         'conferences': conferences_page,
         'paginator': paginator,
         'page_obj': conferences_page,
+        'query': query
     })
 
 

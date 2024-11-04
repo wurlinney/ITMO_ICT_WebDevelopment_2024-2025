@@ -18,6 +18,13 @@
 </header>
 
 <section>
+    <form method="get" action="{% url 'conference_list' %}" class="search-form">
+        <input type="text" name="q" value="{{ query }}" placeholder="Поиск по конференциям">
+        <button type="submit" class="btn">Поиск</button>
+    </form>
+</section>
+
+<section>
     {% if conferences %}
         <ul>
             {% for conference in conferences %}
@@ -58,7 +65,7 @@
 
         <div class="pagination">
             {% if conferences.has_previous %}
-                <a href="?page={{ conferences.previous_page_number }}" class="btn">Предыдущая страница</a>
+                <a href="?q={{ query }}&page={{ conferences.previous_page_number }}" class="btn">Предыдущая страница</a>
             {% else %}
                 <span class="btn disabled">Предыдущая страница</span>
             {% endif %}
@@ -68,7 +75,7 @@
                 </span>
 
             {% if conferences.has_next %}
-                <a href="?page={{ conferences.next_page_number }}" class="btn">Следующая страница</a>
+                <a href="?q={{ query }}&page={{ conferences.next_page_number }}" class="btn">Следующая страница</a>
             {% else %}
                 <span class="btn disabled">Следующая страница</span>
             {% endif %}
