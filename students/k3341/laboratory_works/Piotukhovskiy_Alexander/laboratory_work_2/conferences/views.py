@@ -1,7 +1,10 @@
-from django.contrib.auth import login
+from django.conf import settings
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import render, redirect, get_object_or_404
+from django.views import View
 
 from conferences.models import Conference, ConferenceRating
 from .forms import ConferenceForm, ConferenceRatingForm
@@ -18,10 +21,28 @@ def register(request):
         form = UserCreationForm()
     return render(request, 'authorization/register.html', {'form': form})
 
+class LogoutRedirectView(View):
+    def get(self, request):
+        logout(request)
+        return redirect('conference_list')
 
 def conference_list(request):
-    conferences = Conference.objects.all()
-    return render(request, 'conferences/conference_list.html', {'conferences': conferences})
+    conferences = Conference.objects.all().order_by('-created_at')
+    paginator = Paginator(conferences, settings.ITEMS_PER_PAGE)
+    page_number = request.GET.get('page', 1)
+
+    try:
+        conferences_page = paginator.page(page_number)
+    except PageNotAnInteger:
+        conferences_page = paginator.page(1)
+    except EmptyPage:
+        conferences_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'conferences/conference_list.html', {
+        'conferences': conferences_page,
+        'paginator': paginator,
+        'page_obj': conferences_page,
+    })
 
 
 def conference_detail(request, conference_id):
@@ -57,6 +78,24 @@ def create_conference(request):
     else:
         form = ConferenceForm()
     return render(request, 'conferences/create_conference.html', {'form': form})
+
+
+@login_required
+def edit_conference(request, conference_id):
+    conference = get_object_or_404(Conference, id=conference_id)
+
+    if conference.owner != request.user:
+        return redirect('conference_detail', conference_id=conference.id)
+
+    if request.method == "POST":
+        form = ConferenceForm(request.POST, instance=conference)
+        if form.is_valid():
+            form.save()
+            return redirect('conference_detail', conference_id=conference.id)
+    else:
+        form = ConferenceForm(instance=conference)
+
+    return render(request, 'conferences/edit_conference.html', {'form': form, 'conference': conference})
 
 
 @login_required

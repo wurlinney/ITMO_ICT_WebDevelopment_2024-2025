@@ -17,6 +17,9 @@
     <p><strong>Даты:</strong> {{ conference.start_date }} - {{ conference.end_date }}</p>
     <p><strong>Описание:</strong> {{ conference.description }}</p>
     <p><strong>Условия участия:</strong> {{ conference.participation_conditions }}</p>
+    <p><strong>Дата создания:</strong> {{ conference.created_at|date:"Y-m-d H:i" }}</p>
+    <p><strong>Последнее изменение:</strong> {{ conference.updated_at|date:"Y-m-d H:i" }}</p>
+
     {% if conference.publication_recommended is not None %}
         <div class="banner {% if conference.publication_recommended %}recommended{% else %}not-recommended{% endif %}">
         <span class="banner-icon">
@@ -37,7 +40,8 @@
 
     {% if user.is_authenticated %}
         {% if user == conference.owner %}
-            <p><a href="{% url 'delete_conference' conference.id %}" class="btn">Удалить Conference</a></p>
+            <p><a href="{% url 'edit_conference' conference.id %}" class="btn">Отредактировать конференцию</a></p>
+            <p><a href="{% url 'delete_conference' conference.id %}" class="btn btn-danger">Удалить конференцию</a></p>
             <p><a href="{% url 'view_ratings' conference.id %}" class="btn-link">Посмотреть оценки</a></p>
             <p><a href="{% url 'view_participants' conference.id %}" class="btn-link">Посмотреть участников</a></p>
         {% else %}
