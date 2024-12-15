@@ -8,7 +8,7 @@ from django.db.models.functions import Cast, Substr
 from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework import generics
+from rest_framework import generics, viewsets
 from rest_framework.response import Response
 
 from .models import Reservation, Client, Room, CleaningSchedule, Employee, EmployeePosition, EmploymentContract, \
@@ -16,7 +16,33 @@ from .models import Reservation, Client, Room, CleaningSchedule, Employee, Emplo
 from .serializers import ClientSerializer, RoomSerializer, ClientStayOverlapSerializer, CleaningEmployeeSerializer, \
     ClientRoomCleaningSerializer, HireEmployeeSerializer, FireEmployeeSerializer, EmploymentContractDetailSerializer, \
     UpdateEmployeeSerializer, UpdateCleaningScheduleSerializer, CreateReservationSerializer, \
-    UpdateReservationSerializer, QuarterlyReportSerializer
+    UpdateReservationSerializer, QuarterlyReportSerializer, ReservationSerializer, EmployeeSerializer, \
+    CleaningScheduleSerializer
+
+
+class ClientViewSet(viewsets.ModelViewSet):
+    queryset = Client.objects.all()
+    serializer_class = ClientSerializer
+
+
+class RoomViewSet(viewsets.ModelViewSet):
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+
+
+class ReservationViewSet(viewsets.ModelViewSet):
+    queryset = Reservation.objects.all()
+    serializer_class = ReservationSerializer
+
+
+class EmployeeViewSet(viewsets.ModelViewSet):
+    queryset = Employee.objects.all()
+    serializer_class = EmployeeSerializer
+
+
+class CleaningScheduleViewSet(viewsets.ModelViewSet):
+    queryset = CleaningSchedule.objects.all()
+    serializer_class = CleaningScheduleSerializer
 
 
 class ClientsListView(generics.ListAPIView):
@@ -174,13 +200,22 @@ class RoomsByStatusView(generics.GenericAPIView):
                                 "number": 101,
                                 "type_id": 1,
                                 "type_name": "Одноместный",
-                                "phone": "1234567890"
+                                "phone": "1234567890",
+                                "current_client": {
+                                    "id": 2,
+                                    "passport_number": "0987654321",
+                                    "first_name": "Анна",
+                                    "last_name": "Смирнова",
+                                    "middle_name": None,
+                                    "city_from": "Москва"
+                                }
                             },
                             {
                                 "number": 102,
                                 "type_id": 1,
                                 "type_name": "Одноместный",
-                                "phone": "1234567891"
+                                "phone": "1234567891",
+                                "current_client": None,
                             },
                             {
                                 "number": 201,
@@ -1166,7 +1201,6 @@ class ReservationManagementView(generics.GenericAPIView):
 
         return Response(serializer.errors, status=422)
 
-
     def calculate_total_price(self, room, arrival_date, departure_date):
         total_price = 0
         current_date = arrival_date
@@ -1288,13 +1322,13 @@ class QuarterlyReportView(generics.GenericAPIView):
 
         # Суммарный доход по всей гостинице
         total_income = (
-            Reservation.objects.filter(
-                arrival_date__gte=start_date,
-                departure_date__lte=end_date,
-                payment_status__in=['PREPAID', 'PAID']
-            )
-            .aggregate(total_income=Sum('price_at_booking'))['total_income']
-        ) or 0
+                           Reservation.objects.filter(
+                               arrival_date__gte=start_date,
+                               departure_date__lte=end_date,
+                               payment_status__in=['PREPAID', 'PAID']
+                           )
+                           .aggregate(total_income=Sum('price_at_booking'))['total_income']
+                       ) or 0
 
         report = {
             "clients_per_room": list(clients_per_room),

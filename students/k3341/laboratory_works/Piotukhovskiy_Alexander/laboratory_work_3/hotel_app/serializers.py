@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from rest_framework import serializers
-from .models import Client, Room, Employee, EmploymentContract, EmployeePosition, Reservation
+from .models import Client, Room, Employee, EmploymentContract, EmployeePosition, Reservation, CleaningSchedule
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -13,10 +13,25 @@ class ClientSerializer(serializers.ModelSerializer):
 class RoomSerializer(serializers.ModelSerializer):
     type_id = serializers.IntegerField(source='type.id', read_only=True)
     type_name = serializers.CharField(source='type.name', read_only=True)
+    current_client = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
-        fields = ['number', 'type_id', 'type_name', 'phone']
+        fields = ['number', 'type_id', 'type_name', 'phone', 'current_client']
+
+    def get_current_client(self, obj):
+        if obj.status == 'AVAILABLE':
+            return None
+
+        reservation = Reservation.objects.filter(
+            room=obj,
+            status__in=['CONFIRMED', 'CHECKED_IN']
+        ).order_by('-arrival_date').first()
+
+        if reservation:
+            return ClientSerializer(reservation.client).data
+
+        return None
 
 
 class ClientStayOverlapSerializer(serializers.Serializer):
@@ -271,3 +286,51 @@ class QuarterlyReportSerializer(serializers.Serializer):
                 raise serializers.ValidationError(f"Нельзя запросить квартал {quarter}, так как он ещё не наступил.")
 
         return data
+
+
+class ReservationSerializer(serializers.ModelSerializer):
+    client = serializers.StringRelatedField(read_only=True)
+    room = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = [
+            'id',
+            'client',
+            'room',
+            'admin',
+            'booking_date',
+            'arrival_date',
+            'departure_date',
+            'status',
+            'payment_status',
+            'price_at_booking',
+            'final_price'
+        ]
+
+
+class EmployeeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Employee
+        fields = [
+            'id',
+            'passport_number',
+            'first_name',
+            'last_name',
+            'middle_name',
+        ]
+
+
+class CleaningScheduleSerializer(serializers.ModelSerializer):
+    cleaner = serializers.StringRelatedField(read_only=True)
+    room = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = CleaningSchedule
+        fields = [
+            'id',
+            'cleaner',
+            'room',
+            'cleaning_date',
+            'status'
+        ]

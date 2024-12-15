@@ -40,19 +40,29 @@ GET /rooms?status=AVAILABLE,OCCUPIED
             "number": 101,
             "type_id": 1,
             "type_name": "Одноместный",
-            "phone": "1234567890"
+            "phone": "1234567890",
+            "current_client": {
+                "id": 1,
+                "passport_number": "1234567890",
+                "first_name": "Иван",
+                "last_name": "Иванов",
+                "middle_name": "Сергеевич",
+                "city_from": "Москва"
+            }
         },
         {
             "number": 102,
             "type_id": 1,
             "type_name": "Одноместный",
-            "phone": "1234567891"
+            "phone": "1234567891",
+            "current_client": null
         },
         {
             "number": 201,
             "type_id": 2,
             "type_name": "Двухместный",
-            "phone": "1234567892"
+            "phone": "1234567892",
+            "current_client": null
         }
     ]
 }
@@ -60,14 +70,21 @@ GET /rooms?status=AVAILABLE,OCCUPIED
 
 #### Поля ответа
 
-| Поле              | Тип данных    | Описание                                                       |
-|--------------------|---------------|---------------------------------------------------------------|
-| `count`            | `integer`     | Общее количество найденных номеров.                           |
-| `rooms`            | `array`       | Список номеров, соответствующих указанным статусам.            |
-| `rooms.number`     | `integer`     | Номер комнаты.                                                |
-| `rooms.type_id`    | `integer`     | ID типа комнаты.                                              |
-| `rooms.type_name`  | `string`      | Название типа комнаты (например, "Одноместный").              |
-| `rooms.phone`      | `string`      | Телефонный номер, закрепленный за комнатой.                   |
+| Поле                                   | Тип данных    | Описание                                            |
+|----------------------------------------|---------------|-----------------------------------------------------|
+| `count`                                | `integer`     | Общее количество найденных номеров.                 |
+| `rooms`                                | `array`       | Список номеров, соответствующих указанным статусам. |
+| `rooms.number`                         | `integer`     | Номер комнаты.                                      |
+| `rooms.type_id`                        | `integer`     | ID типа комнаты.                                    |
+| `rooms.type_name`                      | `string`      | Название типа комнаты (например, "Одноместный").    |
+| `rooms.phone`                          | `string`      | Телефонный номер, закрепленный за комнатой.         |
+| `rooms.current_client`                 | `object/null` | Данные о клиенте, проживающим в номере.             |
+| `rooms.current_client.id`              | `integer`     | ID клиента.                                         |
+| `rooms.current_client.passport_number` | `string`      | Номер паспорта клиента.                             |
+| `rooms.current_client.first_name`      | `string`      | Имя клиента.                                        |
+| `rooms.current_client.last_name`       | `string`      | Фамилия клиента.                                    |
+| `rooms.current_client.middle_name`     | `string/null` | Отчество клиента, если указано.                     |
+| `rooms.current_client.city_from`       | `string`      | Город, из которого прибыл клиент.                   |
 
 ---
 

@@ -1,7 +1,9 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 
 from hotel_app.views import ClientsListView, RoomsByStatusView, ClientStayOverlapView, ClientRoomCleaningView, \
-    EmployeeManagementView, CleaningScheduleManagementView, ReservationManagementView, QuarterlyReportView
+    EmployeeManagementView, CleaningScheduleManagementView, ReservationManagementView, QuarterlyReportView, \
+    ClientViewSet, RoomViewSet, ReservationViewSet, EmployeeViewSet, CleaningScheduleViewSet
 
 urlpatterns = [
     path('clients', ClientsListView.as_view(), name='clients-list'),
@@ -14,3 +16,12 @@ urlpatterns = [
     path('reservation/<int:reservation_id>', ReservationManagementView.as_view(), name='update-reservation'),
     path('reports/quarterly', QuarterlyReportView.as_view(), name='quarterly-report'),
 ]
+
+router = DefaultRouter()
+router.register(r'api/clients', ClientViewSet, basename='client')
+router.register(r'api/rooms', RoomViewSet, basename='room')
+router.register(r'api/reservations', ReservationViewSet, basename='reservation')
+router.register(r'api/employees', EmployeeViewSet, basename='employee')
+router.register(r'api/cleaning-schedules', CleaningScheduleViewSet, basename='cleaning-schedule')
+
+urlpatterns += router.urls
