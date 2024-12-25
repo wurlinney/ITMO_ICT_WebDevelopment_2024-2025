@@ -1,7 +1,23 @@
 from datetime import datetime
 
 from rest_framework import serializers
+from djoser.serializers import UserCreateSerializer, UserSerializer
+from django.contrib.auth.models import User
 from .models import Client, Room, Employee, EmploymentContract, EmployeePosition, Reservation, CleaningSchedule
+
+
+class CustomUserSerializer(UserSerializer):
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
+
+    class Meta(UserSerializer.Meta):
+        fields = ('id', 'username', 'email', 'first_name', 'last_name')
+
+
+class CustomUserCreateSerializer(UserCreateSerializer):
+    class Meta(UserCreateSerializer.Meta):
+        model = User
+        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name')
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -14,10 +30,11 @@ class RoomSerializer(serializers.ModelSerializer):
     type_id = serializers.IntegerField(source='type.id', read_only=True)
     type_name = serializers.CharField(source='type.name', read_only=True)
     current_client = serializers.SerializerMethodField()
+    last_cleaner = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
-        fields = ['number', 'type_id', 'type_name', 'phone', 'current_client']
+        fields = ['id', 'number', 'type_id', 'type_name', 'phone', 'status', 'current_client', 'last_cleaner']
 
     def get_current_client(self, obj):
         if obj.status == 'AVAILABLE':
@@ -30,6 +47,19 @@ class RoomSerializer(serializers.ModelSerializer):
 
         if reservation:
             return ClientSerializer(reservation.client).data
+
+    def get_last_cleaner(self, obj):
+        last_cleaning = CleaningSchedule.objects.order_by('-cleaning_date').first()
+
+        if last_cleaning:
+            cleaner = last_cleaning.cleaner.employee
+            return {
+                'id': cleaner.id,
+                'first_name': cleaner.first_name,
+                'last_name': cleaner.last_name,
+                'middle_name': cleaner.middle_name,
+                'cleaning_date': last_cleaning.cleaning_date,
+            }
 
         return None
 
@@ -93,6 +123,7 @@ class EmploymentContractDetailSerializer(serializers.ModelSerializer):
             'employee_middle_name',
             'start_date',
             'end_date',
+            'termination_date',
             'position_id',
             'position_name',
         ]
@@ -106,7 +137,7 @@ class HireEmployeeSerializer(serializers.Serializer):
     position_id = serializers.IntegerField()
     contract_type = serializers.ChoiceField(choices=EmploymentContract.CONTRACT_TYPE_CHOICES)
     start_date = serializers.DateField()
-    end_date = serializers.DateField(required=False)
+    end_date = serializers.DateField(required=False, allow_null=True)
 
     def validate(self, data):
         contract_type = data['contract_type']
@@ -116,6 +147,11 @@ class HireEmployeeSerializer(serializers.Serializer):
         if contract_type == 'PERMANENT' and end_date is not None:
             raise serializers.ValidationError({
                 "end_date": "Поле не может быть указано для постоянного контракта (PERMANENT)."
+            })
+
+        elif contract_type != 'PERMANENT' and end_date is None:
+            raise serializers.ValidationError({
+                "end_date": "Дата окончания контракта должна быть у этого типа контракта."
             })
 
         if end_date and end_date <= start_date:
@@ -153,6 +189,11 @@ class UpdateEmployeeSerializer(serializers.Serializer):
         if contract_type == 'PERMANENT' and end_date is not None:
             raise serializers.ValidationError({
                 "end_date": "Поле не может быть указано для постоянного контракта (PERMANENT)."
+            })
+
+        elif contract_type != 'PERMANENT' and end_date is None:
+            raise serializers.ValidationError({
+                "end_date": "Дата окончания контракта должна быть у этого типа контракта."
             })
 
         if end_date and start_date and end_date <= start_date:
@@ -289,8 +330,8 @@ class QuarterlyReportSerializer(serializers.Serializer):
 
 
 class ReservationSerializer(serializers.ModelSerializer):
-    client = serializers.StringRelatedField(read_only=True)
-    room = serializers.StringRelatedField(read_only=True)
+    client = ClientSerializer(read_only=True)
+    room = RoomSerializer(read_only=True)
 
     class Meta:
         model = Reservation
@@ -305,11 +346,16 @@ class ReservationSerializer(serializers.ModelSerializer):
             'status',
             'payment_status',
             'price_at_booking',
-            'final_price'
+            'final_price',
+            'last_updated_date',
+            'updated_by_id'
         ]
 
 
+
 class EmployeeSerializer(serializers.ModelSerializer):
+    position = serializers.SerializerMethodField()
+
     class Meta:
         model = Employee
         fields = [
@@ -318,19 +364,51 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'middle_name',
+            'position',
+        ]
+
+    def get_position(self, obj):
+        active_contract = EmploymentContract.objects.filter(employee=obj, is_active=True).first()
+        if active_contract and active_contract.position:
+            return {
+                'id': active_contract.position.id,
+                'name': active_contract.position.name,
+                'salary': active_contract.position.salary,
+            }
+        return None
+
+
+class EmployeePositionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmployeePosition
+        fields = [
+            'id',
+            'name',
+            'salary'
         ]
 
 
 class CleaningScheduleSerializer(serializers.ModelSerializer):
-    cleaner = serializers.StringRelatedField(read_only=True)
-    room = serializers.StringRelatedField(read_only=True)
+    cleaner = serializers.SerializerMethodField()
+    room = serializers.SerializerMethodField()
 
     class Meta:
         model = CleaningSchedule
-        fields = [
-            'id',
-            'cleaner',
-            'room',
-            'cleaning_date',
-            'status'
-        ]
+        fields = ['id', 'cleaner', 'room', 'cleaning_date', 'status']
+
+    def get_cleaner(self, obj):
+        employee = obj.cleaner.employee
+        return {
+            'id': employee.id,
+            'first_name': employee.first_name,
+            'last_name': employee.last_name,
+            'middle_name': employee.middle_name,
+        }
+
+    def get_room(self, obj):
+        return {
+            'id': obj.room.id,
+            'number': obj.room.number,
+            'type_id': obj.room.type.id,
+            'type_name': obj.room.type.name,
+        }

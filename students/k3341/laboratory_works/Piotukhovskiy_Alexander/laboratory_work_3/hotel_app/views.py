@@ -9,6 +9,7 @@ from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import generics, viewsets
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import Reservation, Client, Room, CleaningSchedule, Employee, EmployeePosition, EmploymentContract, \
@@ -17,7 +18,17 @@ from .serializers import ClientSerializer, RoomSerializer, ClientStayOverlapSeri
     ClientRoomCleaningSerializer, HireEmployeeSerializer, FireEmployeeSerializer, EmploymentContractDetailSerializer, \
     UpdateEmployeeSerializer, UpdateCleaningScheduleSerializer, CreateReservationSerializer, \
     UpdateReservationSerializer, QuarterlyReportSerializer, ReservationSerializer, EmployeeSerializer, \
-    CleaningScheduleSerializer
+    CleaningScheduleSerializer, EmployeePositionSerializer
+
+
+class PublicEndpoint(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"message": "Hello GET world!"})
+
+    def post(self, request):
+        return Response({"message": "Hello POST world!"})
 
 
 class ClientViewSet(viewsets.ModelViewSet):
@@ -38,6 +49,16 @@ class ReservationViewSet(viewsets.ModelViewSet):
 class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.all()
     serializer_class = EmployeeSerializer
+
+
+class EmploymentContractViewSet(viewsets.ModelViewSet):
+    queryset = EmploymentContract.objects.all()
+    serializer_class = EmploymentContractDetailSerializer
+
+
+class EmployeePositionsViewSet(viewsets.ModelViewSet):
+    queryset = EmployeePosition.objects.all()
+    serializer_class = EmployeePositionSerializer
 
 
 class CleaningScheduleViewSet(viewsets.ModelViewSet):
@@ -80,7 +101,7 @@ class ClientsListView(generics.ListAPIView):
             queryset = queryset.filter(id__in=client_ids)
 
         if city_name:
-            queryset = queryset.filter(city_from__iexact=city_name)
+            queryset = queryset.filter(city_from__icontains=city_name)
 
         return queryset
 
@@ -242,22 +263,17 @@ class RoomsByStatusView(generics.GenericAPIView):
     )
     def get(self, request, *args, **kwargs):
         statuses = request.query_params.get('status', None)
-        if not statuses:
-            return Response(
-                {"detail": "Параметр 'status' обязателен для этого запроса."},
-                status=422
-            )
-
-        status_list = [status.strip().upper() for status in statuses.split(',') if status.strip()]
-        valid_statuses = [choice[0] for choice in Room.STATUS_CHOICES]
-        invalid_statuses = [status for status in status_list if status not in valid_statuses]
-        if invalid_statuses:
-            return Response(
-                {"detail": f"Недопустимые статусы: {invalid_statuses}. Доступные статусы: {valid_statuses}"},
-                status=422
-            )
-
-        rooms_queryset = Room.objects.filter(status__in=status_list)
+        rooms_queryset = Room.objects.all()
+        if statuses:
+            status_list = [status.strip().upper() for status in statuses.split(',') if status.strip()]
+            valid_statuses = [choice[0] for choice in Room.STATUS_CHOICES]
+            invalid_statuses = [status for status in status_list if status not in valid_statuses]
+            if invalid_statuses:
+                return Response(
+                    {"detail": f"Недопустимые статусы: {invalid_statuses}. Доступные статусы: {valid_statuses}"},
+                    status=422
+                )
+            rooms_queryset = rooms_queryset.filter(status__in=status_list)
         rooms_count = rooms_queryset.count()
         rooms_data = RoomSerializer(rooms_queryset, many=True).data
 
@@ -876,7 +892,7 @@ class CleaningScheduleManagementView(generics.GenericAPIView):
 
             cleaner_id = validated_data['cleaner_id']
             cleaning_dates = validated_data['cleaning_dates']
-            room_numbers = validated_data['room_numbers']
+            room_numbers = validated_data['room_ids']
 
             with transaction.atomic():
                 rooms = Room.objects.filter(number__in=room_numbers)

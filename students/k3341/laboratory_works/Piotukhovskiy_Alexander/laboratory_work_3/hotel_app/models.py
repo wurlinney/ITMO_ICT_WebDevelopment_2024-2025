@@ -106,8 +106,8 @@ class EmploymentContract(models.Model):
 
     def terminate_contract(self, termination_date=None):
         if termination_date is None:
-            termination_date = timezone.now().date()
-        elif termination_date > timezone.now().date():
+            termination_date = timezone.now()
+        elif termination_date > timezone.now():
             raise ValidationError("Дата расторжения контракта не может быть в будущем.")
         self.termination_date = termination_date
         self.is_active = False
